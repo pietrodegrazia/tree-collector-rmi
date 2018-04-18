@@ -1,5 +1,7 @@
-package collector;
+package appcollector;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.RemoteException;
@@ -15,7 +17,7 @@ public class Node implements Collector {
         this.parent = parent;
     }
 
-    private int[] children;
+    List<Integer> children = new ArrayList<Integer>();
     private int id;
     private int parent;
 
@@ -25,7 +27,7 @@ public class Node implements Collector {
 
     public int registerChild(int child) {
         System.out.println(this.id + ": registerChild("+child+")");
-        this.children[0] = child;
+        this.children.add((Integer)child);
         return 0;
     }
 
@@ -35,36 +37,55 @@ public class Node implements Collector {
     public static void main(String args[]) {
         int id = Integer.parseInt(args[0]);
         String registryTag = "Node" + id;
-        System.err.println(registryTag);
+        System.err.println("Node: " + registryTag);
 
-        // boolean root = true;
-        // if (args[1] != null) {
-            
-        // } else 
         int parent = Integer.parseInt(args[1]);
-        String parentTag = "Node" + parent;
+        String parentTag = "Node" + parent;    
+        System.err.println("Node: " + parentTag);
+
+        boolean root = (id == parent);
 
         try {
+            System.err.println("Setting Security");
         	System.setSecurityManager(new SecurityManager());
+
+            System.err.println("Locating Registry");
             Registry registry = LocateRegistry.getRegistry();
 
+            System.err.println("Creating Self(Node)");
             Node node = new Node(id, parent);
+
+            System.err.println("Exporting Self(Node)");
             Collector stub = (Collector)UnicastRemoteObject.exportObject(node, 0);
+
+            System.err.println("Binding Self(Node)");
             registry.bind(registryTag, stub);
 
-            Collector parentStub = (Collector)registry.lookup(parentTag);
-            int result = parentStub.registerChild(id);
-            System.out.println("registerChild result: " + result);
+
+            if(!root) {
+                System.err.println("Looking up Parent");
+                Collector parentStub = (Collector)registry.lookup(parentTag);
+
+                System.err.println("Registering as child");
+                int result = parentStub.registerChild(id);
+                System.out.println("registerChild result: " + result);
+            } else {
+                System.err.println("Root Node");
+            }
+
 
             System.err.println("Node waits");
         } catch (NotBoundException e) {
-            System.err.println(id+"Cliente exceção: " + e.toString());
+            System.err.println("Error on Node " + id);
+            System.err.println("Cliente exceção: " + e.toString());
             e.printStackTrace();
         } catch (AlreadyBoundException e) {
-            System.err.println(id+"Already Bound Exception: " + e.toString());
+            System.err.println("Error on Node " + id);
+            System.err.println("Already Bound Exception: " + e.toString());
             e.printStackTrace();
         }  catch (RemoteException e) {
-            System.err.println(id+"Remote Exception: " + e.toString());
+            System.err.println("Error on Node " + id);
+            System.err.println("Remote Exception: " + e.toString());
             e.printStackTrace();
         }
     }
