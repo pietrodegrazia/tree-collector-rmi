@@ -1,6 +1,8 @@
 package appcollector;
 
+import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Scanner;
 import java.util.List;
 import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
@@ -17,18 +19,47 @@ public class Node implements Collector {
         this.parent = parent;
     }
 
-    List<Integer> children = new ArrayList<Integer>();
+    List<Collector> children = new ArrayList<Collector>();
     private int id;
     private int parent;
 
-    public int collect(int parent) {
-        return 1;
+    public List<Integer> collect() {
+        System.err.println("Node Collecting...");
+        List<Integer> data = new ArrayList<Integer>();
+
+        try {
+            for (Collector child : this.children) {
+                
+                //adiciona ids dos filhos do filho
+                List<Integer> childData = child.collect();
+                data.addAll(childData);
+            }
+            data.add((Integer)this.id);
+
+            System.err.println("Done Collecting.");
+            return data;
+
+        }  catch (RemoteException e) {
+            System.err.println("Remote Exception: " + e.toString());
+            e.printStackTrace();
+            return data;
+        }
     }
 
-    public int registerChild(int child) {
-        System.out.println(this.id + ": registerChild("+child+")");
-        this.children.add((Integer)child);
-        return 0;
+    public int registerChild(Collector child) {
+        try {
+            System.out.println(this.id + ": registerChild("+child.id()+")");
+            this.children.add(child);
+            return 0;
+        }  catch (RemoteException e) {
+            System.err.println("Remote Exception: " + e.toString());
+            e.printStackTrace();
+            return -1;
+        }
+    }
+
+    public int id() {
+        return this.id;
     }
 
     //args
@@ -61,20 +92,30 @@ public class Node implements Collector {
             System.err.println("Binding Self(Node)");
             registry.bind(registryTag, stub);
 
-
             if(!root) {
                 System.err.println("Looking up Parent");
                 Collector parentStub = (Collector)registry.lookup(parentTag);
 
                 System.err.println("Registering as child");
-                int result = parentStub.registerChild(id);
+                // int result = parentStub.registerChild(node);
+                int result = parentStub.registerChild(stub);
                 System.out.println("registerChild result: " + result);
+
+                System.err.println("Node waits collector");
+            
             } else {
                 System.err.println("Root Node");
+                
+                Scanner in = new Scanner(System.in);
+                System.out.println("Press enter to begin collection");
+                in.nextLine();
+
+                System.out.println("Begin collector.");
+                List<Integer> data = node.collect();
+                System.out.println(Arrays.toString(data.toArray()));
+                System.out.println("End collector.");
             }
 
-
-            System.err.println("Node waits");
         } catch (NotBoundException e) {
             System.err.println("Error on Node " + id);
             System.err.println("Cliente exceção: " + e.toString());
@@ -91,10 +132,8 @@ public class Node implements Collector {
     }
 }
 
-// javac collector/*.java
-// jar cvf classes.jar collector/*.class
+// javac appcollector/*.java
+// jar cvf classes.jar appcollector/*.class
 
 ///Como Executar
-
-// java -cp . -Djava.rmi.server.codebase=file:///Users/pietrodegrazia/Documents/UFRGS/PDP/ex2-coleta-rmi/classes.jar -Djava.security.policy=java.policy collector.Node
-// java -cp . -Djava.rmi.server.codebase=file:///Users/pietrodegrazia/Documents/UFRGS/PDP/ex2-coleta-rmi/classes.jar -Djava.security.policy=java.policy appcalculadora.Cliente
+// java -cp . -Djava.rmi.server.codebase=file:///Users/pietrodegrazia/Documents/UFRGS/PDP/ex2-coleta-rmi/classes.jar -Djava.security.policy=java.policy appcollector.Node idDoNodo idDoPai
